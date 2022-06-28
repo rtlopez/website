@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>CCPM Tool</title>
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style type="text/css">
+    #swash { position: relative; height: 200px; width: 200px; margin-top: 20px; margin-left: 20px; }
+    #swash-disk   { width: 200px; height: 200px; background-color: lightblue; border-radius: 50%; position: absolute; }
+    #swash .servo { width: 24px; height: 24px; background-color: red; border-radius: 50%; color: #fff; position: absolute; text-align: center;}
+    label.angle   { width: 180px; display: inline-block; text-align: right; }
+    div.form-row  { padding: 2px; }
+  </style>
+</head>
+
+<body>
+  <label>PRESET:</label>
+  <button class="preset" data-cyc1="90" data-cyc2="180" data-cyc3="">90</button> | 
+  <button class="preset default" data-cyc1="60" data-cyc2="300" data-cyc3="180">120</button>
+  <button class="preset" data-cyc1="150" data-cyc2="30" data-cyc3="270">120_X</button>
+  <button class="preset" data-cyc1="240" data-cyc2="120" data-cyc3="0">120_I</button> |
+  <button class="preset" data-cyc1="45" data-cyc2="315" data-cyc3="180">135</button>
+  <button class="preset" data-cyc1="135" data-cyc2="45" data-cyc3="270">135_X</button>
+  <button class="preset" data-cyc1="225" data-cyc2="135" data-cyc3="0">135_I</button> |
+  <button class="preset" data-cyc1="40" data-cyc2="-40" data-cyc3="180">140</button>
+  <button class="preset" data-cyc1="130" data-cyc2="50" data-cyc3="270">140_X</button>
+  <button class="preset" data-cyc1="220" data-cyc2="140" data-cyc3="0">140_I</button> |
+
+  <table style="width: 100%;">
+    <tr>
+      <td style="width: 50%; vertical-align: top;">
+
+        <h2>OPTIONS</h2>
+        <div class="form-row">
+          <label for="cyc1" class="angle">S1 ANGLE</label>
+          <input type="number" id="cyc1" step="5" min="-360" max="360" class="update" />
+        </div>
+
+        <div class="form-row">
+          <label for="cyc2" class="angle">S2 ANGLE</label>
+          <input type="number" id="cyc2" step="5" min="-360" max="360" class="update" />
+        </div>
+        
+        <div class="form-row">
+          <label for="cyc3" class="angle">S3 ANGLE</label>
+          <input type="number" id="cyc3" step="5" min="-360" max="360" class="update" />
+        </div>
+        
+        <div class="form-row">
+          <label for="col" class="angle">COLLECTIVE RATE</label>
+          <input type="number" id="col" value="0.33" step="0.01" min="-1" max="1" class="update" />
+        </div>
+        
+        <div class="form-row">
+          <label for="rp" class="angle">ROLL/PITCH RATE</label>
+          <input type="number" id="rp" value="0.33" step="0.01" min="-1" max="1" class="update" />
+        </div>
+
+        <br />
+        <div id="swash">
+          <div id="swash-disk"></div>
+          <div id="swash-servo-1" class="servo">S1</div>
+          <div id="swash-servo-2" class="servo">S2</div>
+          <div id="swash-servo-3" class="servo">S3</div>
+        </div>
+
+        <h2>MIXER RULES</h2>
+        <pre id="smix"></pre>
+      </td>
+      <td style="width: 50%; vertical-align: top;">
+
+        <h2>INPUTS</h2>
+        <label for="roll">ROLL</label>
+        <br />
+        <input type="range" min="-100" max="100" value="0" class="slider" id="roll">
+        
+        <br />
+        <label for="pitch">PITCH</label>
+        <br />
+        <input type="range" min="-100" max="100" value="0" class="slider" id="pitch">
+      
+        <br />
+        <label for="collective">COLL</label>
+        <br />
+        <input type="range" min="-100" max="100" value="0" class="slider" id="collective">
+      
+        <h2>OUTPUTS</h2>
+
+      </td>
+    </tr>
+  </table>
+
+
+  <script type="text/javascript">
+
+    function toRad(v) { return v * Math.PI / 180 }
+    function toDeg(v) { return v / Math.PI * 180 }
+
+    const CCPM = function() {
+      this.servoAngles = [0, 0, 0]
+      this.collectiveWeight = 0
+      this.rollPitchWeight = 0
+    }
+
+    Object.assign(CCPM.prototype, {
+      setServoAngle: function(idx, angle) {
+        if(idx < 0 || idx > 2) throw RangeError('servo index out of range')
+        this.servoAngles[idx] = angle
+        return this
+      },
+      setCollectiveWeight: function(weight) {
+        this.collectiveWeight = weight
+        return this
+      },
+      setRollPitchWeight: function(weight) {
+        this.rollPitchWeight = weight
+        return this
+      },
+      getMotorMixer: function() {
+        const rules = []
+        return rules
+      },
+      getServoMixer: function() {
+        const rules = []
+        const rp = this.rollPitchWeight
+        const col = this.collectiveWeight
+        this.servoAngles.forEach((angle, index) => {
+          if (angle == null) return
+          const rad = toRad(angle)
+          const sin = Math.sin(rad) * rp
+          const cos = -Math.cos(rad) * rp
+          rules.push([index, 'col', col])
+          if (sin) rules.push([index, 'ail', sin])
+          if (cos) rules.push([index, 'ele', cos])
+        })
+        return rules
+      }
+    })
+
+    const ccpm = new CCPM()
+    //console.log(ccpm)
+    //ccpm.setServoAngle(0, 90).setCollectiveWeight(.5)
+    //console.log(ccpm)
+
+    $(function () {
+      // http://open-txu.org/home/special-interests/helicopter/ccpm-for-taranis/
+      "use strict";
+      /*const INPUTS = {
+        ail: { name: 'ROLL' },
+        ele: { name: 'PITCH' },
+        rud: { name: 'YAW' },
+        thr: { name: 'THR' },
+        col: { name: 'COLL' },
+      }*/
+
+      //let rules = [], formula = [];
+
+      $('input.update').on('input', update)
+      //$('input.slider').on('change', function (e) { console.log('change', $(e.target).val()); })
+      //$('input.slider').on('input', function (e) { console.log('input', $(e.target).val()); })
+
+      $('button.preset').on('click', function (e) {
+        const $b = $(e.target)
+        $('#cyc1').val($b.attr('data-cyc1'))
+        $('#cyc2').val($b.attr('data-cyc2'))
+        $('#cyc3').val($b.attr('data-cyc3'))
+        update()
+      })
+
+      $('button.preset.default').click()
+
+      function update() {
+        updateModel()
+        //updateRules()
+        renderView()
+        renderSwash()
+      }    
+
+      function updateModel() {
+        ccpm.setServoAngle(0, $('#cyc1').val())
+        ccpm.setServoAngle(1, $('#cyc2').val())
+        ccpm.setServoAngle(2, $('#cyc3').val())
+        ccpm.setCollectiveWeight($('#col').val())
+        ccpm.setRollPitchWeight($('#rp').val())
+      }
+
+      function angleToCoords(angle) {
+        const w = 200, h = 200
+        const r = 24, s = 24
+        const sinX = Math.sin(toRad(angle))
+        const cosY = -Math.cos(toRad(angle))
+        const x = sinX * w / 2 + w / 2 - r / 2
+        const y = cosY * h / 2 + h / 2 - r / 2
+        return {left: x, top: y}
+      }
+
+      function renderSwash() {
+        if($('#cyc1').val().length) {
+          $('#swash-servo-1').show()
+          $('#swash-servo-1').css(angleToCoords($('#cyc1').val()))
+        } else {
+          $('#swash-servo-1').hide()
+        }
+        if($('#cyc2').val().length) {
+          $('#swash-servo-2').show()
+          $('#swash-servo-2').css(angleToCoords($('#cyc2').val()))
+        } else {
+          $('#swash-servo-2').hide()
+        }
+        if($('#cyc3').val().length) {
+          $('#swash-servo-3').show()
+          $('#swash-servo-3').css(angleToCoords($('#cyc3').val()))
+        } else {
+          $('#swash-servo-3').hide()
+        }
+      }
+
+      function renderView() {
+        const formula = []
+        const rules = ccpm.getServoMixer()
+        let out1 = rules.map(function (r) {
+          const val = (r[2] * 100).toFixed(0)
+          return `S${r[0]+1} ${r[1]} ${val}`
+        }).join('\n')
+
+        let out2 = formula.map(function (r) {
+          console.log(r)
+          const v2 = (r[2] * 100).toFixed(0)
+          const v4 = (r[4] * 100).toFixed(0)
+          const v6 = (r[6] * 100).toFixed(0)
+          return `${r[0]} = ${r[1]} * ${v2} + ${r[3]} * ${v4} + ${r[5]} * ${v6}`
+        }).join('\n')
+
+        $('#smix').text([out2, out1].join('\n'))
+      }
+
+
+
+      function updateRules() {
+        /*rules = []
+        formula = []
+
+        if (cyc1.length) {
+          const rad1 = toRad(cyc1)
+          const sin1 = Math.sin(rad1) * rp
+          const cos1 = -Math.cos(rad1) * rp
+          rules.push(['S1', INPUTS.col.name, col])
+          if (sin1) rules.push(['S1', INPUTS.ail.name, sin1])
+          if (cos1) rules.push(['S1', INPUTS.ele.name, cos1])
+          formula.push(['S1', INPUTS.col.name, col, INPUTS.ail.name, sin1, INPUTS.ele.name, cos1])
+        }
+        if (cyc2.length) {
+          const rad2 = toRad(cyc2)
+          const sin2 = Math.sin(rad2) * rp
+          const cos2 = -Math.cos(rad2) * rp
+          rules.push(['S2', INPUTS.col.name, col])
+          if (sin2) rules.push(['S2', INPUTS.ail.name, sin2])
+          if (cos2) rules.push(['S2', INPUTS.ele.name, cos2])
+          formula.push(['S2', INPUTS.col.name, col, INPUTS.ail.name, sin2, INPUTS.ele.name, cos2])
+        }
+        if (cyc3.length) {
+          const rad3 = toRad(cyc3)
+          const sin3 = Math.sin(rad3) * rp
+          const cos3 = -Math.cos(rad3) * rp
+          rules.push(['S3', INPUTS.col.name, col])
+          if (sin3) rules.push(['S3', INPUTS.ail.name, sin3])
+          if (cos3) rules.push(['S3', INPUTS.ele.name, cos3])
+          formula.push(['S3', INPUTS.col.name, col, INPUTS.ail.name, sin3, INPUTS.ele.name, cos3])
+        }
+        rules.push(['S4', INPUTS.rud.name, 1])
+        rules.push(['M1', INPUTS.thr.name, 1])
+
+        //console.log(rules)
+        */        
+      }
+    })
+
+  </script>
+</body>
+
+</html>
